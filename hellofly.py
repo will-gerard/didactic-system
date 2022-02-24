@@ -5,7 +5,8 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from prometheus_client import Summary, make_wsgi_app
 import time
 import os
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, select
+import sqlalchemy as db
 
 app = Flask(__name__)
 
@@ -17,6 +18,7 @@ DB_CONN_STRING = os.environ['DATABASE_URL']
 sqlalchemy_conn_string = DB_CONN_STRING[:8] + 'ql' + DB_CONN_STRING[8:]
 
 engine = create_engine(sqlalchemy_conn_string, echo=True)
+connection = engine.connect()
 meta = MetaData()
 
 # Create simple users table to verify the connection
@@ -43,5 +45,7 @@ def hello(name=None):
 # Decorate function with metric.
 @REQUEST_TIME.time()
 def process_hello_request(name=None):
-    time.sleep(2)
-    return render_template('hello.html', name=name)
+    select_query = select([users])
+    ResultProxy = connection.execute(select_query)
+    ResultSet = ResultProxy.fetchall()
+    return render_template('hello.html', name=name, num_users=len(ResultSet))
